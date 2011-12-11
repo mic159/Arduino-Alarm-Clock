@@ -1,16 +1,19 @@
 #include <SPI.h>
+// For some silly reason, I need to include Wire.h here so that the RTClib compiles...
+#include <Wire.h>
 #include <RTClib.h>
 #include <RTC_DS3234.h>
 #include <SerialDisplay.h>
 #include "pitches.h"
 
-const int cs_clock = 9; //DeadOn RTC
-const int cs_display = 10; //7-segment display
+// Pin definitoins
+const int cs_clock = 9; // DeadOn RTC
+const int cs_display = 10; // 7-segment serial display (connected over SPI)
 const int display_power = 8;
 const int buzzer = 5;
-const int button_1 = 2;
+const int button_1 = 2; // Small button, interrupt 0
 const int button_2 = 3; // Main button, interrupt 1
-const int button_3 = 4;
+const int button_3 = 4; // Small button
 
 RTC_DS3234 RTC(cs_clock);
 SerialDisplay disp(cs_display);
@@ -24,8 +27,17 @@ enum MODE
   MODE_SETTINGS,
 };
 
+// Brightness of the display.
+enum BRIGHTNESS
+{
+  BRIGHTNESS_MAX = 0,
+  BRIGHTNESS_HIGH = 20,
+  BRIGHTNESS_MEDIUM = 100,
+  BRIGHTNESS_LOW = 200,
+};
+
 MODE state;
-byte brightness = 100;
+BRIGHTNESS brightness = BRIGHTNESS_MEDIUM;
 
 const int melody[] = {NOTE_C4, NOTE_G3,NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4};
 // note durations: 4 = quarter note, 8 = eighth note, etc.:
@@ -43,6 +55,8 @@ void setup()
   SPI.begin();
   RTC.begin();
   //Serial.begin(19200);
+  // If the chip is running for the fist time, use the
+  // computers time.
   if (!RTC.isrunning())
   {
     RTC.adjust(DateTime(__DATE__, __TIME__));
@@ -112,12 +126,28 @@ void loop()
     c3 = message[(pos+2) % length];
     c4 = message[(pos+3) % length];
     disp.writeNumbers(c1, c2, c3, c4);
+    disp.writeSpecial(); // Clear dots
     pos = (pos + 1) % length;
     delay(500);
   }
   else if (state == MODE_SETTINGS)
   {
-    disp.writeNumbers(brightness);
+    disp.writeNumbers('B', 'R', 'x', 'x');
+    switch(brightness)
+    {
+      case BRIGHTNESS_MAX:
+        disp.writeSpecial(false, true, true, true, true);
+        break;
+      case BRIGHTNESS_HIGH:
+        disp.writeSpecial(false, false, true, true, true);
+        break;
+      case BRIGHTNESS_MEDIUM:
+        disp.writeSpecial(false, false, false, true, true);
+        break;
+      case BRIGHTNESS_LOW:
+        disp.writeSpecial(false, false, false, false, true);
+        break;
+    }
     disp.setBrightness(brightness);
     delay(100);
   }
@@ -132,13 +162,16 @@ void handle_main_button()
   }
   lastDebounceTime = millis();
   
-  if (state != MODE_SETTINGS)
+  if (state == MODE_MESSAGE)
   {
     state = MODE_MELODY;
   }
   else if (state == MODE_SETTINGS)
   {
-    brightness += 20;
+         if (brightness == BRIGHTNESS_MAX)    brightness = BRIGHTNESS_HIGH;
+    else if (brightness == BRIGHTNESS_HIGH)   brightness = BRIGHTNESS_MEDIUM;
+    else if (brightness == BRIGHTNESS_MEDIUM) brightness = BRIGHTNESS_LOW;
+    else if (brightness == BRIGHTNESS_LOW)    brightness = BRIGHTNESS_MAX;
   }
 }
 
