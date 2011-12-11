@@ -93,6 +93,9 @@ void loop()
     disp.writeSpecial(); // Clear dots
     
     delay (250);
+    
+    if (digitalRead(button_3))
+      state = MODE_MESSAGE;
   }
   else if (state == MODE_MELODY)
   {
@@ -117,7 +120,7 @@ void loop()
   }
   else if (state == MODE_MESSAGE)
   {
-    static const char* message = "HIxtHerexxx";
+    static const char* message = "xxxHIxtHere";
     static int length = 11;
     static int pos = 0;
     int c1, c2, c3, c4;
@@ -133,21 +136,11 @@ void loop()
   else if (state == MODE_SETTINGS)
   {
     disp.writeNumbers('B', 'R', 'x', 'x');
-    switch(brightness)
-    {
-      case BRIGHTNESS_MAX:
-        disp.writeSpecial(false, true, true, true, true);
-        break;
-      case BRIGHTNESS_HIGH:
-        disp.writeSpecial(false, false, true, true, true);
-        break;
-      case BRIGHTNESS_MEDIUM:
-        disp.writeSpecial(false, false, false, true, true);
-        break;
-      case BRIGHTNESS_LOW:
-        disp.writeSpecial(false, false, false, false, true);
-        break;
-    }
+    disp.writeSpecial(false,
+            brightness == BRIGHTNESS_MAX,
+            brightness == BRIGHTNESS_HIGH,
+            brightness == BRIGHTNESS_MEDIUM,
+            brightness == BRIGHTNESS_LOW);
     disp.setBrightness(brightness);
     delay(100);
   }
@@ -189,7 +182,7 @@ void handle_second_button()
       state = MODE_SECONDS;
       break;
     case MODE_SECONDS:
-      state = MODE_MESSAGE;
+      state = MODE_SETTINGS;
       break;
     case MODE_MESSAGE:
       state = MODE_SETTINGS;
